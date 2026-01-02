@@ -1,17 +1,15 @@
-import google.generativeai as genai
+from google import genai
 from fpdf import FPDF
 import streamlit as st
 from datetime import datetime
+
 
 def generate_ai_content(raw_notes):
     """Génère le contenu avec le modèle corrigé."""
     try:
         # Configuration via les secrets Streamlit
-        genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
+        client = genai.Client(api_key=st.secrets["GEMINI_API_KEY"])
         
-        # FIX : Utilisation du nom de modèle correct (gemini-1.5-pro) sans préfixe
-        model = genai.GenerativeModel('gemini-1.5-pro')
-    
         prompt = f"""
         Tu es un Expert en Rétention Client et Stratège Business. 
         Transforme ces notes brutes en un rapport d'impact annuel prestigieux.
@@ -27,23 +25,30 @@ def generate_ai_content(raw_notes):
         Ton : Professionnel, convaincant, français impeccable.
         """
         
-        response = model.generate_content(prompt)
+        # CORRECTION : Utiliser generate_content au lieu de generate_text
+        response = client.models.generate_content(
+            model='gemini-2.0-flash-exp',  # Modèle le plus récent et gratuit
+            contents=prompt
+        )
+        
         return response.text
+        
     except Exception as e:
         if "429" in str(e):
             return "Erreur : Quota Google dépassé (trop de demandes). Réessayez dans 1 minute."
         return f"Erreur de génération : {str(e)}"
+
 
 class ImpactPDF(FPDF):
     def header(self):
         # Récupération de la date du jour
         date_aujourdhui = datetime.now().strftime("%d/%m/%Y")
         
-        # FIX EN-TÊTE : Augmentation de la hauteur du bandeau (30 au lieu de 20) pour la lisibilité
+        # Bandeau bleu
         self.set_fill_color(41, 128, 185)
         self.rect(0, 0, 210, 30, 'F')
         
-        # Décalage vers le bas pour ne pas coller au bord
+        # Décalage vers le bas
         self.set_y(8)
         
         # Titre Principal
@@ -61,6 +66,7 @@ class ImpactPDF(FPDF):
         self.set_text_color(128, 128, 128)
         self.cell(0, 10, 'Généré par Impact-2026 - Document Confidentiel', 0, 0, 'C')
 
+
 def create_pdf(freelance, client_name, content, is_pro=False):
     pdf = ImpactPDF()
     pdf.add_page()
@@ -73,7 +79,7 @@ def create_pdf(freelance, client_name, content, is_pro=False):
         with pdf.rotation(45, 100, 150):
             pdf.text(40, 150, "SPECIMEN - VERSION GRATUITE")
 
-    # FIX LISIBILITÉ : On descend après le bandeau bleu de l'en-tête
+    # Espacement après l'en-tête
     pdf.set_y(40) 
     
     # Infos Prestataire et Client
